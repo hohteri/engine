@@ -26,7 +26,7 @@ def get_out_dir(args):
     if args.unoptimized:
         target_dir.append('unopt')
 
-    if args.target_os != 'ios' and args.interpreter:
+    if args.target_os != 'ios' and args.target_os != 'watchos' and args.interpreter:
         target_dir.append('interpreter')
 
     if args.android_cpu != 'arm':
@@ -34,6 +34,9 @@ def get_out_dir(args):
 
     if args.ios_cpu != 'arm64':
         target_dir.append(args.ios_cpu)
+        
+    if args.watchos_cpu != 'arm64_32':
+        target_dir.append(args.watchos_cpu)
 
     if args.linux_cpu is not None:
       target_dir.append(args.linux_cpu)
@@ -71,6 +74,9 @@ def to_gn_args(args):
         elif args.target_os == 'ios':
             if args.runtime_mode != 'debug':
                 raise Exception('iOS simulator only supports the debug runtime mode')
+        elif args.target_os == 'watchos':
+            if args.runtime_mode != 'debug':
+                raise Exception('watchOS simulator only supports the debug runtime mode')
 
     if args.target_os != 'android' and args.enable_vulkan:
       raise Exception('--enable-vulkan is only supported on Android')
@@ -80,8 +86,8 @@ def to_gn_args(args):
     gn_args = {}
 
     if args.bitcode:
-      if args.target_os != 'ios':
-        raise Exception('Bitcode is only supported for iOS')
+      if args.target_os != 'ios' and args.target_os != 'watchos':
+        raise Exception('Bitcode is only supported for iOS/watchOS')
       if runtime_mode != 'release':
         gn_args['bitcode_marker'] = True
 
@@ -160,6 +166,11 @@ def to_gn_args(args):
             gn_args['target_cpu'] = 'x64'
         else:
             gn_args['target_cpu'] = args.ios_cpu
+    elif args.target_os == 'watchos':
+        if args.simulator:
+            gn_args['target_cpu'] = 'x64'
+        else:
+            gn_args['target_cpu'] = args.watchos_cpu
     elif args.target_os == 'linux':
       gn_args['target_cpu'] = args.linux_cpu
     elif args.target_os == 'fuchsia':
@@ -289,11 +300,13 @@ def parse_args(args):
   parser.add_argument('--full-dart-debug', default=False, action='store_true', help='Implies --dart-debug ' +
       'and also disables optimizations in the Dart VM making it easier to step through VM code in the debugger.')
 
-  parser.add_argument('--target-os', type=str, choices=['android', 'ios', 'linux', 'fuchsia'])
+  parser.add_argument('--target-os', type=str, choices=['android', 'ios', 'watchos', 'linux', 'fuchsia'])
   parser.add_argument('--android', dest='target_os', action='store_const', const='android')
   parser.add_argument('--android-cpu', type=str, choices=['arm', 'x64', 'x86', 'arm64'], default='arm')
   parser.add_argument('--ios', dest='target_os', action='store_const', const='ios')
   parser.add_argument('--ios-cpu', type=str, choices=['arm', 'arm64'], default='arm64')
+  parser.add_argument('--watchos', dest='target_os', action='store_const', const='watchos')
+  parser.add_argument('--watchos-cpu', type=str, choices=['armv7k', 'arm64_32'], default='arm64_32')
   parser.add_argument('--simulator', action='store_true', default=False)
   parser.add_argument('--fuchsia', dest='target_os', action='store_const', const='fuchsia')
   parser.add_argument('--linux-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm'])
